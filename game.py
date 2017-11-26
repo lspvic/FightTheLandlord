@@ -65,11 +65,42 @@ class Game:
 
 class Player:
     def __init__(self):
-        self.cardsDict = dict
+        """
+        @:param cards 手牌
+        @:param cardsDict 去掉花色的手牌
+        """
+        self.cardsDict = dict()
         for i in range(3, 18):
-            dict[i] = 0
+            self.cardsDict[i] = 0
+        self.cards = list()
+
+    def reset(self):
+        self.cardsDict = dict()
+        for i in range(3, 18):
+            self.cardsDict[i] = 0
         self.cards = list()
 
     def add_card(self, n):
         self.cards.append(n)
         self.cardsDict[Card.decode(n)] += 1
+
+
+class CardCate:
+    def __init__(self):
+        """
+        @:param value 权重,用来比较同类牌
+        @:param num 牌的数量
+        """
+        self.type = CType.Null
+        self.cards = dict()
+        self.num = 0
+        self.value = 0
+
+    def clear(self):
+        self.type = CType.Null
+        self.cards.clear()
+        self.num = 0
+        self.value = 0
+
+    def add(self, card, n=1):
+        pass
