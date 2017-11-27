@@ -28,7 +28,7 @@ class Card:
         把0-53转换成3-17权值，其中A（14）、2（15）、小王（16）、大王（17）
         :return: int (3 - 17)
         """
-        return int(n / 4 + 3) if n < 52 else n - 36
+        return (n // 4 + 3) if n < 52 else n - 36
 
 
 class CType(Enum):
@@ -65,6 +65,10 @@ class Game:
         """叫地主 抢地主"""
         # set Landlord to player 0
         for i in range(51, 54):
+            self.players[0].add_card(self.card.cards[i])
+
+    def _test_deal(self):
+        for i in range(0, 18):
             self.players[0].add_card(i)
 
     def new_game(self):
@@ -72,18 +76,20 @@ class Game:
         for player in self.players:
             player.reset()
         self.card.shuffle()
-        self.deal_card()
-        self.claim()
+        # self.deal_card()
+        # self.claim()
+        self._test_deal()
         self.play()
 
     def play(self):
         for player in self.players:
-            player.analysis_cate()
             logger.debug('player i')
             logger.debug(player.remain)
             logger.debug(player.cards)
             logger.debug(player.cardDict)
+            player.analysis_cate()
             logger.debug(player.cardCate)
+            break
         pass
 
 
@@ -112,6 +118,7 @@ class Player:
             self.cardCate[t].clear()
 
     def add_card(self, n):
+        # logger.debug('add card {} -> {}'.format(n, Card.decode(n)))
         self.cards.append(n)
         self.cardDict[Card.decode(n)] += 1
         self.remain += 1
@@ -147,7 +154,8 @@ class Player:
                         cc = CardGroup(CType.Sequence, j - i + 1, i)
                         for k in range(i, j + 1):
                             cc.cards[k] = 1
-                            self.cardCate[CType.Sequence].append(cc)
+                        self.cardCate[CType.Sequence].append(cc)
+                        j += 1
 
         for i in range(3, 13):
             if self.cardDict[i] > 1 and self.cardDict[i + 1] > 1:
@@ -158,7 +166,7 @@ class Player:
                         cc = CardGroup(CType.SequenceOfPairs, (j - i + 1) * 2, i)
                         for k in range(i, j + 1):
                             cc.cards[k] = 2
-                            self.cardCate[CType.SequenceOfPairs].append(cc)
+                        self.cardCate[CType.SequenceOfPairs].append(cc)
 
         for i in range(3, 14):
             if self.cardDict[i] > 2:
@@ -169,7 +177,7 @@ class Player:
                         cc = CardGroup(CType.SequenceOfTriplets, (j - i + 1) * 3, i)
                         for k in range(i, j + 1):
                             cc.cards[k] = 3
-                            self.cardCate[CType.SequenceOfTriplets].append(cc)
+                        self.cardCate[CType.SequenceOfTriplets].append(cc)
 
         for triplet in self.cardCate[CType.Triplet]:
             for single in self.cardCate[CType.Single]:
@@ -199,14 +207,14 @@ class Player:
         for i in range(0, len(self.cardCate[CType.Pair])):
             for j in range(i + 1, len(self.cardCate[CType.Pair])):
                 for qua in self.cardCate[CType.Bomb]:
-                    cc = CardGroup(CType.FourPlusSingle, 8, qua.value)
+                    cc = CardGroup(CType.FourPlusPair, 8, qua.value)
                     cc.cards[qua.value] = 4
                     cc.cards[self.cardCate[CType.Pair][i].value] = 2
                     cc.cards[self.cardCate[CType.Pair][j].value] = 2
                     self.cardCate[CType.FourPlusPair].append(cc)
 
         for air in self.cardCate[CType.SequenceOfTriplets]:
-            cnt = air.num / 3
+            cnt = air.num // 3
             if len(self.cardCate[CType.Single]) > cnt * 2:
                 sub = list()
                 for i in self.cardCate[CType.Single]:
@@ -220,7 +228,7 @@ class Player:
                     self.cardCate[CType.AirplanePlusSingle].append(cc)
 
         for air in self.cardCate[CType.SequenceOfTriplets]:
-            cnt = air.num / 3
+            cnt = air.num // 3
             if len(self.cardCate[CType.Pair]) > cnt * 2:
                 sub = list()
                 for i in self.cardCate[CType.Pair]:
@@ -233,7 +241,7 @@ class Player:
                         cc.cards[pair.value] = 2
                     self.cardCate[CType.AirplanePlusPair].append(cc)
 
-        if 16 in self.cardDict.keys() and 17 in self.cardDict.keys():
+        if self.cardDict[16] == 1 and self.cardDict[17] == 1:
             cc = CardGroup(CType.Bomb, 2, 100)
             cc.cards[16] = 1
             cc.cards[17] = 1
@@ -259,6 +267,9 @@ class CardGroup:
 
     def add(self, card, num=1):
         self.cards[card] = num
+
+    def __repr__(self):
+        return '{} {} {}\n{}'.format(self.type.name, self.num, self.value, self.cards)
 
 
 if __name__ == '__main__':
