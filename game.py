@@ -28,7 +28,7 @@ class Card:
         把0-53转换成3-17权值，其中A（14）、2（15）、小王（16）、大王（17）
         :return: int (3 - 17)
         """
-        return (n / 4 + 3) if n < 52 else n - 36
+        return int(n / 4 + 3) if n < 52 else n - 36
 
 
 class CType(Enum):
@@ -57,9 +57,9 @@ class Game:
     def deal_card(self):
         """发牌"""
         self.card.shuffle()
-        for i in range(0, 51):
-            for j in range(3):
-                self.players[j].add_card(i)
+        for i in range(0, 51, 3):
+            for j in range(0, 3):
+                self.players[j].add_card(self.card.cards[i + j])
 
     def claim(self):
         """叫地主 抢地主"""
@@ -74,12 +74,12 @@ class Game:
         self.card.shuffle()
         self.deal_card()
         self.claim()
-        pass
+        self.play()
 
-    def _play(self):
+    def play(self):
         for player in self.players:
             player.analysis_cate()
-            logger.debug('player {0}', player)
+            logger.debug('player i')
             logger.debug(player.remain)
             logger.debug(player.cards)
             logger.debug(player.cardDict)
@@ -108,7 +108,6 @@ class Player:
         for i in range(3, 18):
             self.cardDict[i] = 0
         self.cards.clear()
-        self.cardCate.clear()
         for t in CType.__members__.values():
             self.cardCate[t].clear()
 
@@ -118,7 +117,7 @@ class Player:
         self.remain += 1
 
     def analysis_cate(self):
-        for k, v in self.cardDict:
+        for (k, v) in self.cardDict.items():
             if v > 3:
                 cc = CardGroup(CType.Bomb, 4, k)
                 cc.cards[k] = 4
@@ -139,7 +138,7 @@ class Player:
         for i in range(3, 11):
             j = i
             while j < i + 4 and self.cardDict[j] > 0:
-                j -= 1
+                j += 1
             if j == i + 4:
                 while j < 15:
                     if self.cardDict[j] == 0:
