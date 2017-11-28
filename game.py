@@ -2,6 +2,7 @@ import os
 import random
 import itertools
 from enum import Enum
+from functools import reduce
 import logging.config
 
 
@@ -22,6 +23,8 @@ class Card:
         random.shuffle(self.cards)
         self.remain = 54
 
+    max_value = 1000
+
     @staticmethod
     def decode(n):
         """
@@ -29,6 +32,8 @@ class Card:
         :return: int (3 - 17)
         """
         return (n // 4 + 3) if n < 52 else n - 36
+
+    card_str = 'XXX3456789TJQKA2@#'
 
 
 class CType(Enum):
@@ -50,8 +55,14 @@ class CType(Enum):
 
 
 class Game:
+    winner = None
+    cnt = 0     # 出牌序号
+    c_id = 0    # 上一次出牌的人
+    cc = None   # 上一次出的牌
+    historyCards = dict()   # 已经出掉的牌
+
     def __init__(self):
-        self.players = [Player() for _ in range(3)]
+        self.players = [Player(i) for i in range(3)]
         self.card = Card()
 
     def deal_card(self):
@@ -67,38 +78,58 @@ class Game:
         for i in range(51, 54):
             self.players[0].add_card(self.card.cards[i])
 
-    def _test_deal(self):
+    def _test_deal_claim(self):
         for i in range(0, 18):
             self.players[0].add_card(i)
 
-    def new_game(self):
-        """开始打牌"""
+    def reset(self):
+        Game.cnt = 0
+        Game.c_id = self.players[0].id
+        Game.cc = CardGroup(CType.Null)
+        Game.historyCards.clear()
+        for i in range(3, 18):
+            Game.historyCards[i] = 0
         for player in self.players:
             player.reset()
-        self.card.shuffle()
-        # self.deal_card()
-        # self.claim()
-        self._test_deal()
-        self.play()
 
-    def play(self):
+    def new_game(self):
+        """开始打牌"""
+        self.reset()
+        self.card.shuffle()
+        self.deal_card()
+        self.claim()
+        # self._test_deal_claim()
         for player in self.players:
-            logger.debug('player i')
-            logger.debug(player.remain)
-            logger.debug(player.cards)
-            logger.debug(player.cardDict)
             player.analysis_cate()
-            logger.debug(player.cardCate)
-            break
-        pass
+        self.run()
+
+    def run(self):
+        while not Game.winner:
+            for i in range(0, 3):
+                Game.cnt += 1
+                logger.info('Sequence-{} {}'.format(Game.cnt, self.players[i]))
+                temp_cc = self.players[i].play()
+                logger.info('Play cards: {}'.format(temp_cc))
+                if temp_cc and temp_cc.type != CType.Null:
+                    Game.cc = temp_cc
+                    Game.c_id = self.players[i].id
+                    for (k, v) in Game.cc.cards.items():
+                        Game.historyCards[k] += v
+                # logger.info('History cards: {}'.format(Game.historyCards))
+                if self.players[i].remain == 0:
+                    Game.winner = self.players[i]
+                    break
+        logger.info('Winner is {}'.format(Game.winner))
 
 
 class Player:
-    def __init__(self):
+    def __init__(self, _id):
         """
+        @:param _id id
         @:param cards 手牌
         @:param cardsDict 去掉花色的手牌
         """
+        self.id = _id
         self.remain = 0
         self.cardDict = dict()
         for i in range(3, 18):
@@ -107,6 +138,14 @@ class Player:
         self.cardCate = dict()
         for t in CType.__members__.values():
             self.cardCate[t] = list()
+
+    def __repr__(self):
+        return 'Player-{}\tRemain:{}\tCards:{}\tCardDict:{}'.format(self.id, self.remain, self.cards, self.cardDict)
+
+    def __str__(self):
+        # logger.error(self.cardDict)
+        return 'Player-{}\tRemain:{}\t{}'.format(self.id, self.remain, reduce(
+            lambda s, i: s + Card.card_str[i[0]]*i[1], self.cardDict.items(), ''))
 
     def reset(self):
         self.remain = 0
@@ -198,29 +237,30 @@ class Player:
         for i in range(0, len(self.cardCate[CType.Single])):
             for j in range(i + 1, len(self.cardCate[CType.Single])):
                 for qua in self.cardCate[CType.Bomb]:
-                    cc = CardGroup(CType.FourPlusSingle, 6, qua.value)
-                    cc.cards[qua.value] = 4
-                    cc.cards[self.cardCate[CType.Single][i].value] = 1
-                    cc.cards[self.cardCate[CType.Single][j].value] = 1
-                    self.cardCate[CType.FourPlusSingle].append(cc)
+                    if qua.value != self.cardCate[CType.Single][i].value and \
+                                    qua.value != self.cardCate[CType.Single][j].value:
+                        cc = CardGroup(CType.FourPlusSingle, 6, qua.value)
+                        cc.cards[qua.value] = 4
+                        cc.cards[self.cardCate[CType.Single][i].value] = 1
+                        cc.cards[self.cardCate[CType.Single][j].value] = 1
+                        self.cardCate[CType.FourPlusSingle].append(cc)
 
         for i in range(0, len(self.cardCate[CType.Pair])):
             for j in range(i + 1, len(self.cardCate[CType.Pair])):
                 for qua in self.cardCate[CType.Bomb]:
-                    cc = CardGroup(CType.FourPlusPair, 8, qua.value)
-                    cc.cards[qua.value] = 4
-                    cc.cards[self.cardCate[CType.Pair][i].value] = 2
-                    cc.cards[self.cardCate[CType.Pair][j].value] = 2
-                    self.cardCate[CType.FourPlusPair].append(cc)
+                    if qua.value != self.cardCate[CType.Pair][i].value and \
+                                    qua.value != self.cardCate[CType.Pair][j].value:
+                        cc = CardGroup(CType.FourPlusPair, 8, qua.value)
+                        cc.cards[qua.value] = 4
+                        cc.cards[self.cardCate[CType.Pair][i].value] = 2
+                        cc.cards[self.cardCate[CType.Pair][j].value] = 2
+                        self.cardCate[CType.FourPlusPair].append(cc)
 
         for air in self.cardCate[CType.SequenceOfTriplets]:
             cnt = air.num // 3
-            if len(self.cardCate[CType.Single]) > cnt * 2:
-                sub = list()
-                for i in self.cardCate[CType.Single]:
-                    if i in air.cards.keys():
-                        sub.append(i)
-                for comb in itertools.combinations([i for i in self.cardCate[CType.Single] if i not in sub], cnt):
+            if len(self.cardCate[CType.Single]) >= cnt * 2:
+                for comb in itertools.combinations([i for i in self.cardCate[CType.Single]
+                                                    if i.value not in air.cards.keys()], cnt):
                     cc = CardGroup(CType.AirplanePlusSingle, cnt * 4, air.value)
                     cc.cards = air.cards.copy()
                     for single in comb:
@@ -230,11 +270,8 @@ class Player:
         for air in self.cardCate[CType.SequenceOfTriplets]:
             cnt = air.num // 3
             if len(self.cardCate[CType.Pair]) > cnt * 2:
-                sub = list()
-                for i in self.cardCate[CType.Pair]:
-                    if i in air.cards.keys():
-                        sub.append(i)
-                for comb in itertools.combinations([i for i in self.cardCate[CType.Pair] if i not in sub], cnt):
+                for comb in itertools.combinations([i for i in self.cardCate[CType.Pair]
+                                                    if i.value not in air.cards.keys()], cnt):
                     cc = CardGroup(CType.AirplanePlusSingle, cnt * 5, air.value)
                     cc.cards = air.cards.copy()
                     for pair in comb:
@@ -242,10 +279,51 @@ class Player:
                     self.cardCate[CType.AirplanePlusPair].append(cc)
 
         if self.cardDict[16] == 1 and self.cardDict[17] == 1:
-            cc = CardGroup(CType.Bomb, 2, 100)
+            cc = CardGroup(CType.Bomb, 2, Card.max_value)
             cc.cards[16] = 1
             cc.cards[17] = 1
             self.cardCate[CType.Bomb].append(cc)
+
+    def play(self):
+        """
+        出牌
+        :return: CardGroup（这次出的牌）
+        """
+        if Game.c_id == self.id:    # 自己出牌
+            available = reduce(lambda x, y: x + y, self.cardCate.values())
+        else:   # 接牌
+            available = [cc for cc in self.cardCate[Game.cc.type] if cc.value > Game.cc.value and cc.num == Game.cc.num]
+            if Game.cc.type != CType.Bomb:
+                available += self.cardCate[CType.Bomb]
+            available.append(CardGroup(CType.Null))
+
+        cc = random.choice(available)
+
+        # logger.error('available: {}'.format([str(i) for i in available]))
+        # logger.error('all {} before update: {}'.format(Game.cc.type.name, [str(i) for i in self.cardCate[Game.cc.type]]))
+        self.update_cate(cc)
+        # logger.error('all {} after update: {}'.format(Game.cc.type.name, [str(i) for i in self.cardCate[Game.cc.type]]))
+        return cc
+
+    def update_cate(self, cc):
+        """
+        出牌后更新cate
+        :param cc: 这一次的出牌（CardGroup）
+        """
+        if not cc or cc.type == CType.Null:
+            return
+        self.remain -= cc.num
+        for (k, v) in cc.cards.items():
+            self.cardDict[k] -= v
+        for li in self.cardCate.values():
+            sub = list()
+            for i in li:
+                for (k2, v2) in i.cards.items():
+                    if self.cardDict[k2] < v2:
+                        sub.append(i)
+                        break
+            for i in sub:
+                li.remove(i)
 
 
 class CardGroup:
@@ -269,7 +347,11 @@ class CardGroup:
         self.cards[card] = num
 
     def __repr__(self):
-        return '{} {} {}\n{}'.format(self.type.name, self.num, self.value, self.cards)
+        return 'Type:{}\tNum:{}\tValue:{}\tCards{}'.format(self.type.name, self.num, self.value, self.cards)
+
+    def __str__(self):
+        return '{}_{}_{}_{}'.format(self.type.name, self.num, self.value,
+                                    reduce(lambda s, i: s + Card.card_str[i[0]]*i[1], self.cards.items(), ''))
 
 
 if __name__ == '__main__':
