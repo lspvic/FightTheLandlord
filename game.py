@@ -350,7 +350,7 @@ class CardGroup:
         return 'Type:{}\tNum:{}\tValue:{}\tCards{}'.format(self.type.name, self.num, self.value, self.cards)
 
     def __str__(self):
-        return '{}_{}_{}_{}'.format(self.type.name, self.num, self.value,
+        return '{}_num({})_value({})_{}'.format(self.type.name, self.num, self.value,
                                     reduce(lambda s, i: s + Card.card_str[i[0]]*i[1], self.cards.items(), ''))
 
 
