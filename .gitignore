@@ -9,6 +9,8 @@ __pycache__/
 *.pid
 *.db
 *.swp
+*.log
+*.log.*
 
 # virtualenv
 venv
