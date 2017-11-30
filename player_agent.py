@@ -36,7 +36,7 @@ class Player:
     @abstractmethod
     def reset(self):
         """
-        情况状态，准备开始新的一局
+        清空状态，准备开始新的一局
         :return:
         """
         pass
